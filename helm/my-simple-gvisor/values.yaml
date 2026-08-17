@@ -19,13 +19,40 @@ command:
   - -c
   - "while true; do sleep 3600; done"
 
-resources: {}
-#  limits:
-#    cpu: 200m
-#    memory: 256Mi
-#  requests:
-#    cpu: 100m
-#    memory: 128Mi
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Pod-level security hardening (applies to all containers in the pod).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level security hardening.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# This pod never talks to the Kubernetes API, so don't hand it a token.
+automountServiceAccountToken: false
+
+# Scratch space, since readOnlyRootFilesystem above means the container's
+# own filesystem can't be written to (e.g. if you `kubectl exec` in to poke
+# around and need to write a file, use /tmp).
+tmpVolume:
+  enabled: true
+  sizeLimit: 64Mi
 
 nameOverride: ""
 fullnameOverride: ""
