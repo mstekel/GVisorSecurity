@@ -34,6 +34,15 @@ spec:
             - |
               mkdir -p /host-seccomp/profiles
               cp /profile/{{ .Values.seccomp.profileFileName }} /host-seccomp/profiles/{{ .Values.seccomp.profileFileName }}
+          # Pod-level securityContext (runAsUser 65534) would block writing
+          # to the root-owned /var/lib/kubelet/seccomp on the node. This is
+          # a short-lived, one-shot setup step (not the sandboxed workload),
+          # so it gets its own root override rather than weakening the main
+          # container's hardening.
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
           volumeMounts:
             - name: node-seccomp-root
               mountPath: /host-seccomp
