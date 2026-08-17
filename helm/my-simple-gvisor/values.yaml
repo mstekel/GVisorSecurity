@@ -10,10 +10,14 @@ image:
 # cluster. Leave empty ("") to use the default container runtime.
 runtimeClassName: ""
 
-service:
-  type: ClusterIP
-  port: 80
-  targetPort: 8080
+# The image's default command is just an interactive shell (/bin/sh -l),
+# which exits immediately when run non-interactively. Override it here to
+# keep the container alive so you can `kubectl exec -it <pod> -- /bin/sh`
+# into it (e.g. for probing gVisor/runsc sandbox behavior).
+command:
+  - /bin/sh
+  - -c
+  - "while true; do sleep 3600; done"
 
 resources: {}
 #  limits:
