@@ -54,5 +54,27 @@ tmpVolume:
   enabled: true
   sizeLimit: 64Mi
 
+# Custom seccomp profile that additionally allows the syscalls gVisor
+# (runsc) needs to run rootless sandboxing inside this container: ptrace,
+# unshare, clone, clone3, pivot_root, mount, umount2. Everything else stays
+# restricted to the same Docker/Moby default (RuntimeDefault-equivalent)
+# baseline. The profile is delivered via a ConfigMap ("data:") and copied
+# onto the node by an initContainer, rather than requiring a physical file
+# pre-placed on every node's disk. See templates/seccomp-configmap.yaml.
+#
+# This is deliberately capability-free: Docker's default seccomp profile
+# blocks unshare() outright and gates clone()'s namespace flags behind
+# CAP_SYS_ADMIN, which is stricter than the kernel itself requires. The
+# kernel lets an unprivileged process create a new user namespace (and,
+# combined in the same call, other namespaces) via unshare(CLONE_NEWUSER)
+# with no capabilities at all, and grants it a full capability set scoped
+# to that new namespace - which is what actually makes mount/pivot_root
+# work inside it. This rule just removes Docker's extra seccomp-level
+# restriction; it intentionally does not, and should not, need
+# securityContext.capabilities.add: [SYS_ADMIN] or any other capability.
+seccomp:
+  enabled: true
+  profileFileName: my-simple-gvisor-runsc.json
+
 nameOverride: ""
 fullnameOverride: ""

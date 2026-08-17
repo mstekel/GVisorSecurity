@@ -20,6 +20,27 @@ spec:
       automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.seccomp.enabled }}
+      # Stages the custom seccomp profile (from the ConfigMap's "data:") onto
+      # this node's kubelet seccomp root before the main container starts.
+      # Runs on whichever node this pod lands on, so it's correct even in a
+      # multi-node cluster without needing a cluster-wide DaemonSet.
+      initContainers:
+        - name: seccomp-profile-installer
+          image: busybox:stable
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /host-seccomp/profiles
+              cp /profile/{{ .Values.seccomp.profileFileName }} /host-seccomp/profiles/{{ .Values.seccomp.profileFileName }}
+          volumeMounts:
+            - name: node-seccomp-root
+              mountPath: /host-seccomp
+            - name: seccomp-profile
+              mountPath: /profile
+              readOnly: true
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -30,16 +51,34 @@ spec:
           {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- if .Values.seccomp.enabled }}
+            seccompProfile:
+              type: Localhost
+              localhostProfile: profiles/{{ .Values.seccomp.profileFileName }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.tmpVolume.enabled }}
+          {{- if or .Values.tmpVolume.enabled }}
           volumeMounts:
+            {{- if .Values.tmpVolume.enabled }}
             - name: tmp
               mountPath: /tmp
+            {{- end }}
           {{- end }}
-      {{- if .Values.tmpVolume.enabled }}
+      {{- if or .Values.tmpVolume.enabled .Values.seccomp.enabled }}
       volumes:
+        {{- if .Values.tmpVolume.enabled }}
         - name: tmp
           emptyDir:
             sizeLimit: {{ .Values.tmpVolume.sizeLimit }}
+        {{- end }}
+        {{- if .Values.seccomp.enabled }}
+        - name: node-seccomp-root
+          hostPath:
+            path: /var/lib/kubelet/seccomp
+            type: DirectoryOrCreate
+        - name: seccomp-profile
+          configMap:
+            name: {{ include "my-simple-gvisor.fullname" . }}-seccomp
+        {{- end }}
       {{- end }}
