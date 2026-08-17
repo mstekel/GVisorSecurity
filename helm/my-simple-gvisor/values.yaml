@@ -39,7 +39,6 @@ podSecurityContext:
 # Container-level security hardening.
 securityContext:
   allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
